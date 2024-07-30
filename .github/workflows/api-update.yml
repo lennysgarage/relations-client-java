@@ -8,10 +8,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Update runBuf.sh
+      
+      - name: Check current commit
+        id: check_commit
         run: |
-          sed -i.bak 's|buf.build/project-kessel/relations-api:[^ ]*|buf.build/project-kessel/relations-api:latest|' runBuf.sh
+          CURRENT_COMMIT=$(grep -o 'relations-api[^"]*'  runBuf.sh)
+          NEW_COMMIT="relations-api:${{ github.event.client_payload.commit }}"
+          if [ "$CURRENT_COMMIT" = "$NEW_COMMIT" ]; then
+            echo "NEEDS_UPDATE=false" >> $GITHUB_OUTPUT
+          else
+            echo "NEEDS_UPDATE=true" >> $GITHUB_OUTPUT
+          fi
+          echo "Current commit: $CURRENT_COMMIT"
+          echo "New commit: $NEW_COMMIT"
+
+      - name: Update runBuf.sh
+        if: steps.check_commit.outputs.NEEDS_UPDATE == 'true'
+        run: sed -i.bak 's|buf.build/project-kessel/relations-api:[^ ]*|buf.build/project-kessel/relations-api:${{ github.event.client_payload.commit }}|' runBuf.sh
+
       - name: Create Pull Request
+        if: steps.check_commit.outputs.NEEDS_UPDATE == 'true'
         uses: peter-evans/create-pull-request@v6.1.0
         with:
             title: "Update API to ${{ github.event.client_payload.commit }}"
@@ -19,3 +35,8 @@ jobs:
             branch: "api-change/${{ github.event.client_payload.commit }}"
             commit-message: "Update API to ${{ github.event.client_payload.commit }}"
             token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log skipped update
+        if: steps.check_commit.outputs.NEEDS_UPDATE == 'false'
+        run: |
+          echo "Skipped update: Current commit is already up to date."
