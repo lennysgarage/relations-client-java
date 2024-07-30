@@ -1,0 +1,21 @@
+name: Update proto commit
+on:
+  repository_dispatch:
+    types: ["api_update"]
+jobs:
+  update-runbuf:
+    name: Update runBuf.sh and Create PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update runBuf.sh
+        run: |
+          sed -i.bak 's|buf.build/project-kessel/relations-api:[^ ]*|buf.build/project-kessel/relations-api:latest|' runBuf.sh
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6.1.0
+        with:
+            title: "Update API to ${{ github.event.client_payload.commit }}"
+            body: "Updating to latest API commit: ${{ github.event.client_payload.commit }}"
+            branch: "api-change/${{ github.event.client_payload.commit }}"
+            commit-message: "Update API to ${{ github.event.client_payload.commit }}"
+            token: ${{ secrets.GITHUB_TOKEN }}
